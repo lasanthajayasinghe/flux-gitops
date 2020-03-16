@@ -1,0 +1,47 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  labels:
+    app: web
+  name: thelia-web
+  namespace: hf-dev
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: web
+        version: v1.0.0
+    spec:
+      containers:
+      - args:
+        - /usr/sbin/apache2ctl
+        - -D
+        - FOREGROUND
+        env:
+        - name: SYMFONY_ENV
+          value: dev
+        image: eu.gcr.io/hausfabrik-196019/thelia_extern-web:latest
+        name: web
+        ports:
+        - containerPort: 80
+        resources: {}
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.16
+        command: ["/cloud_sql_proxy",
+                  "-instances=hausfabrik-196019:europe-west1:sepaeng-k8s-sql=tcp:3306",
+                  "-credential_file=/secrets/cloudsql/credentials.json"]
+        securityContext:
+          runAsUser: 2  
+          allowPrivilegeEscalation: false
+        volumeMounts:
+          - name: cloudsql-instance-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
+      volumes:
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
+
